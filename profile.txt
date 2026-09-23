@@ -1,0 +1,11 @@
+My name is Albion.
+I'm currently learning about cloud computing, AI, and DevOps.
+
+My career goal is to become a full stack ai engineer.
+I'm especially interested in automation, mcp's and ai agents.
+
+I have experience with typescript, python, aws.
+I'm currently building projects on NextWork to grow my hands-on skills.
+
+For fun, I enjoy playing games, exploring new tech.
+A fun fact about me is e.g., I once ran a marathon, I can solve a Rubik's cube in under a minute.
