@@ -1,30 +1,78 @@
-import os
 from fastapi import FastAPI
+import ollama
 import chromadb
-
-# Mock LLM mode for CI testing
-USE_MOCK_LLM = os.getenv("USE_MOCK_LLM", "0") == "1"
-
-if not USE_MOCK_LLM:
-    import ollama
+from chromadb.utils.embedding_functions.ollama_embedding_function import (
+    OllamaEmbeddingFunction,
+)
 
 app = FastAPI()
-chroma = chromadb.PersistentClient(path="./db")
-collection = chroma.get_or_create_collection("docs")
 
-@app.post("/query")
-def query(q: str):
-    results = collection.query(query_texts=[q], n_results=1)
-    context = results["documents"][0][0] if results["documents"] else ""
+# Connect to the ChromaDB database
+client = chromadb.PersistentClient(path="./chroma_db")
 
-    if USE_MOCK_LLM:
-        # In mock mode, return the retrieved context directly
-        return {"answer": context}
+# Use Ollama to generate embeddings
+embedding_function = OllamaEmbeddingFunction(
+    model_name="nomic-embed-text",
+    url="http://localhost:11434",
+)
 
-    # In production mode, use Ollama
-    answer = ollama.generate(
-        model="tinyllama",
-        prompt=f"Context:\n{context}\n\nQuestion: {q}\n\nAnswer clearly and concisely:"
+# Get the collection containing the knowledge base
+collection = client.get_or_create_collection(
+    name="personal_profile",
+    embedding_function=embedding_function,
+)
+
+
+@app.get("/ask")
+def ask(question: str):
+    # Step 1: RETRIEVE
+    # Search ChromaDB for the most relevant documents
+    results = collection.query(
+        query_texts=[question],
+        n_results=2,
     )
 
-    return {"answer": answer["response"]}
+    documents = results.get("documents", [[]])[0]
+
+    # Handle case where nothing was retrieved
+    if not documents:
+        return {
+            "question": question,
+            "answer": "I couldn't find relevant information in the knowledge base.",
+            "context_used": [],
+        }
+
+    # Combine retrieved documents
+    context = "\n\n".join(documents)
+
+    # Step 2: AUGMENT
+    augmented_prompt = f"""Use the following context to answer the question.
+
+If the context doesn't contain relevant information, say so.
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer clearly and concisely:"""
+
+    # Step 3: GENERATE
+    # Send the augmented prompt to the local Ollama model
+    response = ollama.chat(
+        model="qwen2.5:0.5b",
+        messages=[
+            {
+                "role": "user",
+                "content": augmented_prompt,
+            }
+        ],
+    )
+
+    # Return the generated answer and retrieved context
+    return {
+        "question": question,
+        "answer": response["message"]["content"],
+        "context_used": documents,
+    }
