@@ -1,54 +1,30 @@
+import os
 from fastapi import FastAPI
-import ollama
 import chromadb
-from chromadb.utils.embedding_functions.ollama_embedding_function import (
-    OllamaEmbeddingFunction,
-)
 
-app = FastAPI()  # Create the FastAPI application
+# Mock LLM mode for CI testing
+USE_MOCK_LLM = os.getenv("USE_MOCK_LLM", "0") == "1"
 
-# Connect to the same ChromaDB collection you built in Step 2
-client = chromadb.PersistentClient(path="./chroma_db")
+if not USE_MOCK_LLM:
+    import ollama
 
-ef = OllamaEmbeddingFunction(
-    model_name="nomic-embed-text",
-    url="http://localhost:11434",
-)
+app = FastAPI()
+chroma = chromadb.PersistentClient(path="./db")
+collection = chroma.get_or_create_collection("docs")
 
-collection = client.get_or_create_collection(
-    name="personal_profile",
-    embedding_function=ef,
-)
+@app.post("/query")
+def query(q: str):
+    results = collection.query(query_texts=[q], n_results=1)
+    context = results["documents"][0][0] if results["documents"] else ""
 
+    if USE_MOCK_LLM:
+        # In mock mode, return the retrieved context directly
+        return {"answer": context}
 
-@app.get("/ask")  # This creates a GET endpoint at /ask
-def ask(question: str):  # FastAPI automatically reads "question" from the URL query string
-    # Step 1: RETRIEVE - search ChromaDB for the 2 most relevant chunks
-    results = collection.query(
-        query_texts=[question],  # ChromaDB converts this to a vector and finds similar chunks
-        n_results=2,  # Return the top 2 matches
-    )
-    # Combine the matching chunks into a single string
-    context = "\n\n".join(results["documents"][0])
-
-    # Step 2: AUGMENT - build a prompt that includes the retrieved context
-    augmented_prompt = f"""Use the following context to answer the question.
-If the context doesn't contain relevant information, say so.
-
-Context:
-{context}
-
-Question: {question}"""
-
-    # Step 3: GENERATE - send the augmented prompt to the local LLM
-    response = ollama.chat(
-        model="qwen2.5:0.5b",
-        messages=[{"role": "user", "content": augmented_prompt}],
+    # In production mode, use Ollama
+    answer = ollama.generate(
+        model="tinyllama",
+        prompt=f"Context:\n{context}\n\nQuestion: {q}\n\nAnswer clearly and concisely:"
     )
 
-    # Return the answer along with the context so users can verify the source
-    return {
-        "question": question,
-        "answer": response["message"]["content"],
-        "context_used": results["documents"][0],
-    }
+    return {"answer": answer["response"]}
