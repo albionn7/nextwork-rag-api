@@ -1,0 +1,82 @@
+Kubernetes is a system for managing and orchestrating containers.
+
+A container is a lightweight, isolated environment that contains your application and the dependencies it needs to run.
+
+For example, your RAG API might contain:
+
+* Python
+* FastAPI
+* Uvicorn
+* ChromaDB
+* Your code
+
+This can be packaged into a Docker container.
+
+Without containers, you might manually install everything on a server.
+
+With a container, you package the application and its dependencies together.
+
+Docker is commonly used to create and run these containers.
+
+The problem comes when you have many containers.
+
+For example:
+
+* 5 NestJS containers
+* 3 Next.js containers
+* 2 worker containers
+* 3 database-related containers
+* 5 AI service containers
+
+Now you need something to manage all of them.
+
+This is where Kubernetes comes in.
+
+Kubernetes can:
+
+* Start containers
+* Stop containers
+* Restart containers if they crash
+* Scale the number of containers
+* Distribute traffic between containers
+* Deploy new versions
+* Manage communication between services
+* Manage configuration and secrets
+
+This is called container orchestration.
+
+A simple way to remember it:
+
+Docker = "Run this container."
+
+Kubernetes = "Manage all these containers."
+
+For example:
+
+Kubernetes
+|
+|-- API container
+|-- API container
+|-- API container
+|-- Worker container
+|-- Worker container
+|-- Database container
+
+If one API container crashes, Kubernetes can detect it and start another one.
+
+If traffic increases, Kubernetes can increase the number of API containers.
+
+So the hierarchy is roughly:
+
+Application
+↓
+Container
+↓
+Docker
+↓
+Many containers
+↓
+Kubernetes
+↓
+Orchestration and
+
