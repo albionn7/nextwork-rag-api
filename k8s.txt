@@ -61,6 +61,7 @@ Kubernetes
 |-- Worker container
 |-- Worker container
 |-- Database container
+test
 
 If one API container crashes, Kubernetes can detect it and start another one.
 
